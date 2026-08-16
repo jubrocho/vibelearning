@@ -11,14 +11,28 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
+    <!-- Dynamic Ambient Canvas Background -->
+    <canvas id="ambientCanvas" class="ambient-background"></canvas>
+    
     <div id="app" class="app-container">
         <!-- Header -->
         <header class="glass-header">
             <div class="header-content">
-                <h1>AI Assistant</h1>
-                <button id="settingsBtn" class="icon-btn" aria-label="Settings" title="API 설정">
-                    <i data-lucide="settings"></i>
-                </button>
+                <div class="header-left">
+                    <h1>AI Assistant</h1>
+                    <div id="statusBadge" class="status-badge" title="상태">
+                        <span id="statusDot" class="status-dot status-online"></span>
+                        <span id="statusText" class="status-text">Online</span>
+                    </div>
+                </div>
+                <div class="header-right">
+                    <button id="soundToggleBtn" class="icon-btn" aria-label="Sound Toggle" title="소리 끄기">
+                        <i data-lucide="volume-2" id="soundIcon"></i>
+                    </button>
+                    <button id="settingsBtn" class="icon-btn" aria-label="Settings" title="API 설정">
+                        <i data-lucide="settings"></i>
+                    </button>
+                </div>
             </div>
         </header>
 
@@ -45,9 +59,12 @@
         </main>
 
         <!-- Input Area -->
-        <footer class="glass-footer">
+        <footer class="floating-footer">
             <form id="chatForm" class="chat-form">
                 <div class="input-wrapper">
+                    <button type="button" id="micBtn" class="mic-btn" aria-label="음성 인식" title="음성으로 입력">
+                        <i data-lucide="mic"></i>
+                    </button>
                     <textarea 
                         id="chatInput" 
                         placeholder="메시지를 입력하세요..." 
