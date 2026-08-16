@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chatbot</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Google Fonts for typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+    <div id="app" class="app-container">
+        <!-- Header -->
+        <header class="glass-header">
+            <div class="header-content">
+                <h1>AI Assistant</h1>
+                <button id="settingsBtn" class="icon-btn" aria-label="Settings" title="API 설정">
+                    <i data-lucide="settings"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Chat Area -->
+        <main id="chatContainer" class="chat-container">
+            <div class="welcome-message" id="welcomeMessage">
+                <div class="welcome-icon">
+                    <i data-lucide="sparkles"></i>
+                </div>
+                <h2>안녕하세요! 무엇을 도와드릴까요?</h2>
+                <p>자유롭게 대화해보세요.</p>
+            </div>
+            
+            <div id="messageList" class="message-list">
+                <!-- Messages will be injected here -->
+            </div>
+            
+            <!-- Typing Indicator -->
+            <div id="typingIndicator" class="typing-indicator hidden">
+                <div class="dot"></div>
+                <div class="dot"></div>
+                <div class="dot"></div>
+            </div>
+        </main>
+
+        <!-- Input Area -->
+        <footer class="glass-footer">
+            <form id="chatForm" class="chat-form">
+                <div class="input-wrapper">
+                    <textarea 
+                        id="chatInput" 
+                        placeholder="메시지를 입력하세요..." 
+                        rows="1"
+                        aria-label="채팅 입력"
+                    ></textarea>
+                    <button type="submit" id="sendBtn" class="send-btn" aria-label="전송" disabled>
+                        <i data-lucide="send"></i>
+                    </button>
+                </div>
+            </form>
+        </footer>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal-overlay hidden">
+        <div class="modal-content glass-panel">
+            <div class="modal-header">
+                <h2>설정</h2>
+                <button id="closeModalBtn" class="icon-btn" aria-label="닫기">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <label for="apiKeyInput">Gemini API 키</label>
+                <p class="help-text">API 키는 브라우저에만 저장되며 서버로 전송되지 않습니다. 키가 없으면 모의(Mock) 응답이 제공됩니다.</p>
+                <input type="password" id="apiKeyInput" placeholder="AIzaSy...">
+            </div>
+            <div class="modal-footer">
+                <button id="saveKeyBtn" class="primary-btn">저장하기</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="config.js" defer></script>
+    <script src="app.js" defer></script>
+</body>
+</html>
