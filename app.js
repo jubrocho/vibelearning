@@ -678,10 +678,11 @@ async function callGeminiAPI(prompt) {
         if (response.status === 429) {
             // Force exhaust local quota immediately to trigger cooldown
             const now = Date.now();
+            const failedModelName = MODELS[selectedModel].name;
             usageHistory[selectedModel] = Array(MODELS[selectedModel].limit).fill(now);
             localStorage.setItem('geminiUsageHistory', JSON.stringify(usageHistory));
-            updateQuotas();
-            throw new Error(`API 서버 요청 한도(429)를 초과했습니다. ${MODELS[selectedModel].name} 모델이 60초간 비활성화됩니다.`);
+            updateQuotas(); // This might auto-switch selectedModel
+            throw new Error(`API 서버 요청 한도(429)를 초과했습니다. ${failedModelName} 모델이 60초간 비활성화됩니다.`);
         }
 
         if (!response.ok) {
