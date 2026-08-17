@@ -46,12 +46,12 @@ const modelOptions = document.querySelectorAll('.model-option');
 // State
 const MODELS = {
     'gemini-flash-latest': { name: 'Gemini Flash', limit: 15 },
-    'gemini-1.5-pro-latest': { name: 'Gemini Pro', limit: 2 }
+    'gemini-pro-latest': { name: 'Gemini Pro', limit: 2 }
 };
 let selectedModel = 'gemini-flash-latest';
 let usageHistory = JSON.parse(localStorage.getItem('geminiUsageHistory')) || {
     'gemini-flash-latest': [],
-    'gemini-1.5-pro-latest': []
+    'gemini-pro-latest': []
 };
 // Ensure arrays exist
 for (const model in MODELS) {
@@ -685,7 +685,16 @@ async function callGeminiAPI(prompt) {
         }
 
         if (!response.ok) {
-            throw new Error(`API 오류: ${response.status} ${response.statusText}`);
+            let errorMsg = `API 오류: ${response.status} ${response.statusText}`;
+            try {
+                const errorData = await response.json();
+                if (errorData.error && errorData.error.message) {
+                    errorMsg += `\n상세원인: ${errorData.error.message}`;
+                }
+            } catch (e) {
+                // Ignore json parsing error
+            }
+            throw new Error(errorMsg);
         }
         
         // Record successful usage
