@@ -764,6 +764,21 @@ if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
     micBtn.style.display = 'none';
 }
 
+// --- Search Toggle Logic ---
+const searchToggleBtn = document.getElementById('searchToggleBtn');
+let isSearchEnabled = false;
+
+searchToggleBtn.addEventListener('click', () => {
+    isSearchEnabled = !isSearchEnabled;
+    if (isSearchEnabled) {
+        searchToggleBtn.classList.add('active');
+        searchToggleBtn.title = "웹 검색 끄기";
+    } else {
+        searchToggleBtn.classList.remove('active');
+        searchToggleBtn.title = "웹 검색 켜기";
+    }
+});
+
 // --- API Logic ---
 
 // Mock AI Response
@@ -810,6 +825,10 @@ async function callGeminiAPI(prompt) {
                 maxOutputTokens: 2048,
             }
         };
+        
+        if (isSearchEnabled) {
+            payload.tools = [{ googleSearch: {} }];
+        }
 
         // Optional safety: locally prevent sending if we know quota is exhausted
         if (usageHistory[selectedModel].length >= MODELS[selectedModel].limit) {
