@@ -34,11 +34,14 @@
                     </div>
                 </div>
                 <div class="header-right">
-                    <button id="soundToggleBtn" class="icon-btn" aria-label="Sound Toggle" title="소리 끄기">
-                        <i data-lucide="volume-2" id="soundIcon"></i>
+                    <button type="button" id="summarizeBtn" class="icon-btn" aria-label="대화/문서 요약" title="현재 대화/문서 요약 레포트 생성">
+                        <i data-lucide="file-text"></i>
                     </button>
-                    <button id="settingsBtn" class="icon-btn" aria-label="Settings" title="API 설정">
+                    <button type="button" id="settingsBtn" class="icon-btn" aria-label="설정" title="API 설정">
                         <i data-lucide="settings"></i>
+                    </button>
+                    <button type="button" id="soundToggleBtn" class="icon-btn" aria-label="소리 설정" title="효과음 설정">
+                        <i data-lucide="volume-2" id="soundIcon"></i>
                     </button>
                 </div>
             </div>
@@ -59,6 +62,31 @@
                         <p>파일을 여기에 끌어다 놓거나<br>아래 버튼을 눌러 선택하세요.</p>
                         <span class="file-limits">지원 형식: JPG, PNG, WEBP, PDF (최대 20MB)</span>
                         <button type="button" id="browseFilesBtn" class="primary-btn">파일 찾아보기</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Report Modal -->
+        <div id="reportModal" class="modal-overlay hidden">
+            <div class="modal-content report-modal-content">
+                <div class="modal-header">
+                    <h2>📝 요약 레포트</h2>
+                    <div class="report-actions" style="display: flex; gap: 0.5rem;">
+                        <button id="printReportBtn" class="primary-btn" style="padding: 0.4rem 1rem; font-size: 0.9rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <i data-lucide="printer" style="width: 16px; height: 16px;"></i> 인쇄
+                        </button>
+                        <button id="closeReportModalBtn" class="icon-btn" aria-label="닫기">
+                            <i data-lucide="x"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+                    <div id="reportContent" class="report-content markdown-body" style="line-height: 1.6; font-size: 0.95rem;">
+                        <div style="text-align: center; padding: 2rem;">
+                            <i data-lucide="loader-2" class="spin-icon" style="animation: spin 2s linear infinite; width: 32px; height: 32px; color: var(--accent-red); margin-bottom: 1rem;"></i>
+                            <p>레포트를 생성 중입니다. 잠시만 기다려주세요...</p>
+                        </div>
                     </div>
                 </div>
             </div>

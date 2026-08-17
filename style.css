@@ -982,3 +982,102 @@ body {
     border-style: solid;
     border-color: transparent transparent transparent var(--border-color);
 }
+
+/* Report Modal specific styling */
+.report-modal-content {
+    width: 90%;
+    max-width: 800px;
+    height: 85vh;
+}
+
+/* Download Button Overlay */
+.media-container {
+    position: relative;
+    display: inline-block;
+    max-width: 100%;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+.download-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: var(--radius-sm);
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity var(--transition-fast), background var(--transition-fast);
+    z-index: 10;
+}
+
+.media-container:hover .download-btn {
+    opacity: 1;
+}
+
+.download-btn:hover {
+    background: var(--accent-red);
+    border-color: var(--accent-red);
+}
+
+.download-btn i {
+    width: 16px;
+    height: 16px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Print Styles */
+@media print {
+    body * {
+        visibility: hidden;
+    }
+    #reportModal, #reportModal * {
+        visibility: visible;
+    }
+    #reportModal {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        background: white;
+        color: black;
+    }
+    .modal-overlay {
+        background: transparent;
+        backdrop-filter: none;
+    }
+    .modal-content {
+        border: none;
+        box-shadow: none;
+        background: white;
+        width: 100%;
+        height: auto;
+        padding: 0;
+    }
+    .report-actions, .modal-header h2 {
+        display: none !important;
+    }
+    .report-content {
+        color: black !important;
+        font-family: sans-serif;
+    }
+    .report-content h1, .report-content h2, .report-content h3 {
+        color: black !important;
+        page-break-after: avoid;
+    }
+    .report-content p, .report-content ul, .report-content li {
+        color: black !important;
+    }
+}

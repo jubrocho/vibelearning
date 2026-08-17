@@ -23,11 +23,38 @@ const closeModalBtn = document.getElementById('closeModalBtn');
 const apiKeyInput = document.getElementById('apiKeyInput');
 const saveKeyBtn = document.getElementById('saveKeyBtn');
 
+// Global download function for images
+window.downloadImage = async (url, filename) => {
+    try {
+        const response = await fetch(url);
+        const blob = await response.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = blobUrl;
+        a.download = filename ? `${filename}.jpg` : 'download.jpg';
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(blobUrl);
+        a.remove();
+    } catch (e) {
+        console.error("Download failed", e);
+        window.open(url, '_blank');
+    }
+};
+
 // Header Elements
 const soundToggleBtn = document.getElementById('soundToggleBtn');
 const soundIcon = document.getElementById('soundIcon');
 const statusDot = document.getElementById('statusDot');
 const statusText = document.getElementById('statusText');
+const summarizeBtn = document.getElementById('summarizeBtn');
+
+// Report Modal Elements
+const reportModal = document.getElementById('reportModal');
+const closeReportModalBtn = document.getElementById('closeReportModalBtn');
+const printReportBtn = document.getElementById('printReportBtn');
+const reportContent = document.getElementById('reportContent');
 
 // Drag & Drop / Upload Modal Elements
 const globalDropOverlay = document.getElementById('globalDropOverlay');
@@ -349,6 +376,65 @@ modelOptions.forEach(option => {
     });
 });
 
+// --- Report Modal Logic ---
+
+closeReportModalBtn.addEventListener('click', () => {
+    reportModal.classList.add('hidden');
+});
+
+printReportBtn.addEventListener('click', () => {
+    window.print();
+});
+
+summarizeBtn.addEventListener('click', async () => {
+    if (chatHistory.length === 0 && !selectedFile) {
+        alert("요약할 대화 내용이나 첨부된 문서가 없습니다.");
+        return;
+    }
+
+    reportModal.classList.remove('hidden');
+    reportContent.innerHTML = `
+        <div style="text-align: center; padding: 2rem;">
+            <i data-lucide="loader-2" class="spin-icon" style="animation: spin 2s linear infinite; width: 32px; height: 32px; color: var(--accent-red); margin-bottom: 1rem;"></i>
+            <p>레포트를 생성 중입니다. 잠시만 기다려주세요...</p>
+        </div>
+    `;
+    lucide.createIcons();
+
+    try {
+        const summaryPrompt = "당신은 전문 문서/대화 요약 AI 비서입니다. 지금까지의 대화 내용과 첨부된 문서들을 꼼꼼히 분석하여 다음 형식의 마크다운 레포트를 작성해주세요:\n\n# 요약 레포트\n\n## 📌 핵심 요약\n- (3~5줄로 가장 핵심적인 내용만 요약)\n\n## 📝 주요 내용 및 분석\n- (상세하고 체계적인 분석 내용)\n\n## 💡 결론 및 인사이트\n- (마무리 요약 및 시사점)";
+        
+        let payload = {
+            contents: [...chatHistory, { role: "user", parts: [{ text: summaryPrompt }] }]
+        };
+
+        if (selectedFile) {
+            // Include currently attached file if any
+            payload.contents[payload.contents.length - 1].parts.unshift({
+                inlineData: { mimeType: selectedFile.mimeType, data: selectedFile.base64 }
+            });
+        }
+
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            throw new Error(`API 오류: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        const reportText = data.candidates[0].content.parts[0].text;
+        
+        reportContent.innerHTML = parseMarkdown(reportText);
+        lucide.createIcons();
+    } catch (e) {
+        reportContent.innerHTML = `<div style="color: var(--accent-red); padding: 2rem; text-align: center;">레포트 생성 중 오류가 발생했습니다.<br>${e.message}</div>`;
+    }
+});
+
 // Native file input change
 fileInput.addEventListener('change', (e) => {
     processFile(e.target.files[0]);
@@ -462,6 +548,41 @@ function scrollToBottom() {
     chatContainer.scrollTop = chatContainer.scrollHeight;
 }
 
+function downloadImage(url, alt) {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${alt || 'image'}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+function parseMarkdown(text) {
+    let html = text
+        .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+        .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+        .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+        .replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/gim, '<em>$1</em>')
+        .replace(/```([\s\S]*?)```/gim, '<pre><code>$1</code></pre>')
+        .replace(/`(.*?)`/gim, '<code>$1</code>')
+        .replace(/!\[([^\]]+)\]\(([^)]+)\)/gim, (match, alt, url) => {
+            const cleanAlt = alt.replace(/'/g, "\\'");
+            return `<div class="media-container">
+                        <img src="${url}" alt="${alt}">
+                        <button class="download-btn" onclick="downloadImage('${url}', '${cleanAlt}')" title="다운로드">
+                            <i data-lucide="download"></i>
+                        </button>
+                    </div>`;
+        })
+        .replace(/^\s*\n\*/gm, '<ul>\n*')
+        .replace(/^(\*.+)\s*\n([^\*])/gm, '$1\n</ul>\n\n$2')
+        .replace(/^\*(.+)/gm, '<li>$1</li>')
+        .replace(/\n$/gim, '<br />');
+
+    return html.trim();
+}
+
 // Add message to UI
 function appendMessage(role, text, fileAttachment = null) {
     // Hide welcome message
@@ -479,10 +600,15 @@ function appendMessage(role, text, fileAttachment = null) {
     // Add user attachment preview if exists
     if (role === 'user' && fileAttachment) {
         const attachDiv = document.createElement('div');
-        attachDiv.classList.add('user-attachment');
+        attachDiv.classList.add('media-container');
         
         if (fileAttachment.mimeType.startsWith('image/')) {
-            attachDiv.innerHTML = `<img src="${fileAttachment.dataUrl}" alt="첨부 이미지">`;
+            attachDiv.innerHTML = `
+                <img src="${fileAttachment.dataUrl}" alt="첨부 이미지">
+                <button class="download-btn" onclick="downloadImage('${fileAttachment.dataUrl}', '첨부이미지')" title="다운로드">
+                    <i data-lucide="download"></i>
+                </button>
+            `;
         } else if (fileAttachment.mimeType === 'application/pdf') {
             attachDiv.innerHTML = `<div class="pdf-attachment"><i data-lucide="file-text"></i> <span>${fileAttachment.name}</span></div>`;
         }
@@ -490,16 +616,8 @@ function appendMessage(role, text, fileAttachment = null) {
     }
     
     // Basic Markdown formatting (bold, italics, line breaks, and Images)
-    let formattedText = text
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*(.*?)\*/g, '<em>$1</em>')
-        // Convert Markdown Images to <img> tags for Image Generation
-        .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1">')
-        .replace(/\n/g, '<br>');
+    let formattedText = parseMarkdown(text);
         
-    // Format code blocks
-    formattedText = formattedText.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
-    
     // Create text container to append to contentDiv
     const textDiv = document.createElement('div');
     textDiv.innerHTML = formattedText;
