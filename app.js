@@ -2,6 +2,13 @@
 const chatInput = document.getElementById('chatInput');
 const sendBtn = document.getElementById('sendBtn');
 const micBtn = document.getElementById('micBtn');
+const attachBtn = document.getElementById('attachBtn');
+const fileInput = document.getElementById('fileInput');
+const filePreview = document.getElementById('filePreview');
+const previewImage = document.getElementById('previewImage');
+const previewPdf = document.getElementById('previewPdf');
+const pdfName = document.getElementById('pdfName');
+const removeFileBtn = document.getElementById('removeFileBtn');
 const chatForm = document.getElementById('chatForm');
 const messageList = document.getElementById('messageList');
 const welcomeMessage = document.getElementById('welcomeMessage');
@@ -22,12 +29,20 @@ const soundIcon = document.getElementById('soundIcon');
 const statusDot = document.getElementById('statusDot');
 const statusText = document.getElementById('statusText');
 
+// Drag & Drop / Upload Modal Elements
+const globalDropOverlay = document.getElementById('globalDropOverlay');
+const uploadModal = document.getElementById('uploadModal');
+const closeUploadModalBtn = document.getElementById('closeUploadModalBtn');
+const dropZone = document.getElementById('dropZone');
+const browseFilesBtn = document.getElementById('browseFilesBtn');
+
 // State
 // Fallback to CONFIG object if available (loaded from config.js)
 const defaultKey = typeof CONFIG !== 'undefined' ? CONFIG.GEMINI_API_KEY : '';
 let apiKey = localStorage.getItem('gemini_api_key') || defaultKey;
 let chatHistory = []; // Store history for context
 let isSoundOn = true; // Default sound state
+let selectedFile = null; // Store selected file data { base64, mimeType, name }
 
 // Initialize
 try {
@@ -150,13 +165,161 @@ drawAmbient();
 
 // --- UI Logic ---
 
+// --- Upload Modal & File Attachment Logic ---
+
+// Open custom upload modal instead of direct file input
+attachBtn.addEventListener('click', () => {
+    uploadModal.classList.remove('hidden');
+    uploadModal.style.display = 'flex';
+});
+
+// Close custom upload modal
+closeUploadModalBtn.addEventListener('click', () => {
+    uploadModal.classList.add('hidden');
+    uploadModal.style.display = 'none';
+});
+
+// Browse Files Button inside Modal
+browseFilesBtn.addEventListener('click', () => {
+    fileInput.click();
+});
+
+// Common file processing function
+function processFile(file) {
+    if (!file) return;
+
+    // Check if it's an image or PDF
+    if (!file.type.startsWith('image/') && file.type !== 'application/pdf') {
+        alert('지원되지 않는 파일 형식입니다. 이미지(JPG, PNG 등) 또는 PDF 파일만 업로드 가능합니다.');
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        // Extract base64 part
+        const base64Data = event.target.result.split(',')[1];
+        
+        selectedFile = {
+            base64: base64Data,
+            mimeType: file.type,
+            name: file.name,
+            dataUrl: event.target.result // for preview
+        };
+        
+        // Show preview in the chat input area
+        filePreview.classList.remove('hidden');
+        if (file.type.startsWith('image/')) {
+            previewImage.src = selectedFile.dataUrl;
+            previewImage.classList.remove('hidden');
+            previewPdf.classList.add('hidden');
+        } else if (file.type === 'application/pdf') {
+            pdfName.textContent = file.name;
+            previewPdf.classList.remove('hidden');
+            previewImage.classList.add('hidden');
+        }
+        
+        // Enable send button
+        sendBtn.disabled = false;
+        
+        // Close modal if it was open
+        uploadModal.classList.add('hidden');
+        uploadModal.style.display = 'none';
+    };
+    reader.readAsDataURL(file);
+}
+
+// Native file input change
+fileInput.addEventListener('change', (e) => {
+    processFile(e.target.files[0]);
+});
+
+// --- Drag & Drop Logic ---
+
+let dragCounter = 0; // To handle child element dragenter/leave properly
+
+// Global Window Drag Events
+window.addEventListener('dragenter', (e) => {
+    e.preventDefault();
+    dragCounter++;
+    if (dragCounter === 1) {
+        globalDropOverlay.classList.remove('hidden');
+        globalDropOverlay.style.display = 'flex';
+    }
+});
+
+window.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    dragCounter--;
+    if (dragCounter === 0) {
+        globalDropOverlay.classList.add('hidden');
+        globalDropOverlay.style.display = 'none';
+    }
+});
+
+window.addEventListener('dragover', (e) => {
+    e.preventDefault(); // Prevent default to allow drop
+});
+
+window.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dragCounter = 0;
+    globalDropOverlay.classList.add('hidden');
+    globalDropOverlay.style.display = 'none';
+    
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        processFile(e.dataTransfer.files[0]);
+    }
+});
+
+// Modal Drop Zone Events
+dropZone.addEventListener('dragenter', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dropZone.classList.add('dragover');
+});
+
+dropZone.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dropZone.classList.remove('dragover');
+});
+
+dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dropZone.classList.add('dragover');
+});
+
+dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dropZone.classList.remove('dragover');
+    
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        processFile(e.dataTransfer.files[0]);
+    }
+});
+
+function clearFileSelection() {
+    selectedFile = null;
+    fileInput.value = '';
+    filePreview.classList.add('hidden');
+    previewImage.src = '';
+    
+    if (chatInput.value.trim() === '') {
+        sendBtn.disabled = true;
+    }
+}
+
+removeFileBtn.addEventListener('click', clearFileSelection);
+
 // Auto-resize textarea
 chatInput.addEventListener('input', function() {
     this.style.height = 'auto';
     this.style.height = (this.scrollHeight) + 'px';
     
     // Enable/disable send button
-    if (this.value.trim().length > 0) {
+    if (this.value.trim().length > 0 || selectedFile) {
         sendBtn.disabled = false;
     } else {
         sendBtn.disabled = true;
@@ -167,7 +330,7 @@ chatInput.addEventListener('input', function() {
 chatInput.addEventListener('keydown', function(e) {
     if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
-        if (this.value.trim().length > 0) {
+        if (this.value.trim().length > 0 || selectedFile) {
             chatForm.requestSubmit();
         }
     }
@@ -179,7 +342,7 @@ function scrollToBottom() {
 }
 
 // Add message to UI
-function appendMessage(role, text) {
+function appendMessage(role, text, fileAttachment = null) {
     // Hide welcome message
     if (!welcomeMessage.classList.contains('hidden')) {
         welcomeMessage.classList.add('hidden');
@@ -192,13 +355,34 @@ function appendMessage(role, text) {
     const contentDiv = document.createElement('div');
     contentDiv.classList.add('message-content');
     
-    // Simple markdown parsing for code blocks and basic formatting
-    let formattedText = text
-        .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>') // Code blocks
-        .replace(/`([^`]+)`/g, '<code>$1</code>') // Inline code
-        .replace(/\n/g, '<br>'); // New lines
+    // Add user attachment preview if exists
+    if (role === 'user' && fileAttachment) {
+        const attachDiv = document.createElement('div');
+        attachDiv.classList.add('user-attachment');
         
-    contentDiv.innerHTML = formattedText;
+        if (fileAttachment.mimeType.startsWith('image/')) {
+            attachDiv.innerHTML = `<img src="${fileAttachment.dataUrl}" alt="첨부 이미지">`;
+        } else if (fileAttachment.mimeType === 'application/pdf') {
+            attachDiv.innerHTML = `<div class="pdf-attachment"><i data-lucide="file-text"></i> <span>${fileAttachment.name}</span></div>`;
+        }
+        contentDiv.appendChild(attachDiv);
+    }
+    
+    // Basic Markdown formatting (bold, italics, line breaks, and Images)
+    let formattedText = text
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        // Convert Markdown Images to <img> tags for Image Generation
+        .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1">')
+        .replace(/\n/g, '<br>');
+        
+    // Format code blocks
+    formattedText = formattedText.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+    
+    // Create text container to append to contentDiv
+    const textDiv = document.createElement('div');
+    textDiv.innerHTML = formattedText;
+    contentDiv.appendChild(textDiv);
     msgDiv.appendChild(contentDiv);
     
     // Add TTS button for AI
@@ -323,23 +507,46 @@ const getMockResponse = () => {
 
 // Call Gemini API
 async function callGeminiAPI(prompt) {
-    // Add user message to history
-    chatHistory.push({
-        role: "user",
-        parts: [{ text: prompt }]
-    });
-
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`;
-    
     try {
-        const response = await fetch(url, {
+        const payloadParts = [];
+        
+        // If file attached, add to parts
+        if (selectedFile) {
+            payloadParts.push({
+                inlineData: {
+                    mimeType: selectedFile.mimeType,
+                    data: selectedFile.base64
+                }
+            });
+        }
+        
+        // Add text prompt
+        if (prompt) {
+            payloadParts.push({ text: prompt });
+        }
+
+        const requestBody = {
+            systemInstruction: {
+                parts: [{ 
+                    text: "당신은 구글 제미나이(Gemini) 기반의 친절하고 똑똑한 AI 어시스턴트입니다. 파일(PDF, 이미지)이 첨부되면 내용을 꼼꼼히 분석하여 답변하세요. \n\n[중요: 이미지 생성 요청 처리 규칙]\n만약 사용자가 이미지를 그려달라고 하거나 생성해달라고 요청하는 경우, 당신은 무료 이미지 생성 API를 통해 이미지를 그려주어야 합니다. 답변에 다음과 같은 마크다운 형식의 이미지 링크를 반드시 포함하세요: \n\n`![이미지 설명](https://image.pollinations.ai/prompt/영어로_번역된_상세_프롬프트)`\n\n- '영어로_번역된_상세_프롬프트' 부분은 사용자의 요청을 바탕으로 고품질 이미지를 만들기 위한 상세한 영문 설명(URL 인코딩 불필요, 띄어쓰기는 그대로)으로 작성하세요.\n- 예시: `![귀여운 우주 비행사 고양이](https://image.pollinations.ai/prompt/A cute fluffy cat wearing an astronaut suit, floating in space, highly detailed, 4k, digital art)`" 
+                }]
+            },
+            contents: [
+                ...chatHistory,
+                { role: "user", parts: payloadParts }
+            ],
+            generationConfig: {
+                temperature: 0.7,
+                maxOutputTokens: 2048,
+            }
+        };
+
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                contents: chatHistory
-            })
+            body: JSON.stringify(requestBody)
         });
 
         if (!response.ok) {
@@ -350,18 +557,14 @@ async function callGeminiAPI(prompt) {
         const data = await response.json();
         const aiText = data.candidates[0].content.parts[0].text;
         
-        // Add AI response to history
-        chatHistory.push({
-            role: "model",
-            parts: [{ text: aiText }]
-        });
+        // Add history
+        chatHistory.push({ role: "user", parts: payloadParts });
+        chatHistory.push({ role: "model", parts: [{ text: aiText }] });
         
         return aiText;
         
     } catch (error) {
         console.error("Gemini API Error:", error);
-        // Remove the last user message from history on error so they can retry
-        chatHistory.pop(); 
         return `오류가 발생했습니다: ${error.message}`;
     }
 }
@@ -372,7 +575,7 @@ chatForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     
     const message = chatInput.value.trim();
-    if (!message) return;
+    if (!message && !selectedFile) return;
     
     // Reset input
     chatInput.value = '';
@@ -384,8 +587,12 @@ chatForm.addEventListener('submit', async (e) => {
         ambientBackground.classList.add('hidden');
     }
     
+    // Save reference to current file and clear UI
+    const fileToUpload = selectedFile;
+    clearFileSelection();
+    
     // Add user message to UI
-    appendMessage('user', message);
+    appendMessage('user', message, fileToUpload);
     
     // Show typing indicator
     setTyping(true);
@@ -393,7 +600,9 @@ chatForm.addEventListener('submit', async (e) => {
     // Get response
     let responseText = "";
     if (apiKey) {
+        selectedFile = fileToUpload;
         responseText = await callGeminiAPI(message);
+        selectedFile = null;
     } else {
         responseText = await getMockResponse();
     }
