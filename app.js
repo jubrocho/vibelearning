@@ -634,7 +634,7 @@ function appendMessage(role, text, fileAttachment = null) {
         speakBtn.classList.add('icon-btn', 'action-btn');
         speakBtn.innerHTML = '<i data-lucide="volume-2"></i>';
         speakBtn.title = "음성으로 듣기";
-        speakBtn.onclick = () => speakText(text);
+        speakBtn.onclick = () => speakText(text, speakBtn);
         
         actionDiv.appendChild(speakBtn);
         msgDiv.appendChild(actionDiv);
@@ -647,12 +647,28 @@ function appendMessage(role, text, fileAttachment = null) {
 }
 
 // --- Text to Speech Logic ---
-function speakText(text) {
+let currentSpeechUtterance = null;
+let currentSpeakBtn = null;
+
+function speakText(text, btnElement) {
     if (!isSoundOn) return; // Respect sound toggle
     
     if ('speechSynthesis' in window) {
         // Stop any ongoing speech
-        window.speechSynthesis.cancel();
+        if (window.speechSynthesis.speaking) {
+            window.speechSynthesis.cancel();
+            
+            if (currentSpeakBtn) {
+                currentSpeakBtn.innerHTML = '<i data-lucide="volume-2"></i>';
+                lucide.createIcons({ root: currentSpeakBtn.parentElement });
+            }
+            
+            // If the user clicked the SAME button, just stop and exit.
+            if (currentSpeakBtn === btnElement) {
+                currentSpeakBtn = null;
+                return;
+            }
+        }
         
         // Remove markdown formatting (code blocks, asterisks, etc.) for speech
         const plainText = text.replace(/```[\s\S]*?```/g, "코드 블록이 생략되었습니다.")
@@ -660,6 +676,21 @@ function speakText(text) {
 
         const utterance = new SpeechSynthesisUtterance(plainText);
         utterance.lang = 'ko-KR'; // Korean
+        
+        utterance.onend = () => {
+            if (currentSpeakBtn === btnElement && btnElement) {
+                btnElement.innerHTML = '<i data-lucide="volume-2"></i>';
+                lucide.createIcons({ root: btnElement.parentElement });
+                currentSpeakBtn = null;
+            }
+        };
+        
+        if (btnElement) {
+            btnElement.innerHTML = '<i data-lucide="square"></i>';
+            lucide.createIcons({ root: btnElement.parentElement });
+            currentSpeakBtn = btnElement;
+        }
+        
         window.speechSynthesis.speak(utterance);
     }
 }
@@ -876,8 +907,8 @@ chatForm.addEventListener('submit', async (e) => {
     setTyping(false);
     appendMessage('ai', responseText);
     
-    // Automatically read the response aloud
-    speakText(responseText);
+    // Automatically read the response aloud (Disabled by default)
+    // speakText(responseText);
 });
 
 // Modal Events
@@ -916,15 +947,20 @@ soundToggleBtn.addEventListener('click', () => {
     isSoundOn = !isSoundOn;
     
     if (isSoundOn) {
-        soundIcon.setAttribute('data-lucide', 'volume-2');
+        soundToggleBtn.innerHTML = '<i data-lucide="volume-2"></i>';
         soundToggleBtn.title = "소리 끄기";
     } else {
-        soundIcon.setAttribute('data-lucide', 'volume-x');
+        soundToggleBtn.innerHTML = '<i data-lucide="volume-x"></i>';
         soundToggleBtn.title = "소리 켜기";
         // Immediately stop any playing audio
         if ('speechSynthesis' in window) {
             window.speechSynthesis.cancel();
+            if (currentSpeakBtn) {
+                currentSpeakBtn.innerHTML = '<i data-lucide="volume-2"></i>';
+                lucide.createIcons({ root: currentSpeakBtn.parentElement });
+                currentSpeakBtn = null;
+            }
         }
     }
-    lucide.createIcons(); // Re-render the icon
+    lucide.createIcons({ root: soundToggleBtn }); // Re-render the icon
 });
