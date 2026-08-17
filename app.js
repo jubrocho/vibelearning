@@ -36,7 +36,28 @@ const closeUploadModalBtn = document.getElementById('closeUploadModalBtn');
 const dropZone = document.getElementById('dropZone');
 const browseFilesBtn = document.getElementById('browseFilesBtn');
 
+// Model Selector Elements
+const modelSelector = document.getElementById('modelSelector');
+const modelSelectBtn = document.getElementById('modelSelectBtn');
+const modelDropdown = document.getElementById('modelDropdown');
+const currentModelName = document.getElementById('currentModelName');
+const modelOptions = document.querySelectorAll('.model-option');
+
 // State
+const MODELS = {
+    'gemini-flash-latest': { name: 'Gemini Flash', limit: 15 },
+    'gemini-1.5-pro-latest': { name: 'Gemini Pro', limit: 2 }
+};
+let selectedModel = 'gemini-flash-latest';
+let usageHistory = JSON.parse(localStorage.getItem('geminiUsageHistory')) || {
+    'gemini-flash-latest': [],
+    'gemini-1.5-pro-latest': []
+};
+// Ensure arrays exist
+for (const model in MODELS) {
+    if (!usageHistory[model]) usageHistory[model] = [];
+}
+
 // Fallback to CONFIG object if available (loaded from config.js)
 const defaultKey = typeof CONFIG !== 'undefined' ? CONFIG.GEMINI_API_KEY : '';
 let apiKey = localStorage.getItem('gemini_api_key') || defaultKey;
@@ -227,6 +248,106 @@ function processFile(file) {
     };
     reader.readAsDataURL(file);
 }
+
+// --- Rate Limiter & Model Selector Logic ---
+
+function updateQuotas() {
+    const now = Date.now();
+    let hasChanges = false;
+    
+    for (const modelId in MODELS) {
+        // Clean up requests older than 60 seconds
+        const oldLen = usageHistory[modelId].length;
+        usageHistory[modelId] = usageHistory[modelId].filter(timestamp => now - timestamp < 60000);
+        if (usageHistory[modelId].length !== oldLen) hasChanges = true;
+        
+        const used = usageHistory[modelId].length;
+        const limit = MODELS[modelId].limit;
+        const remaining = Math.max(0, limit - used);
+        
+        const optionEl = document.querySelector(`.model-option[data-model="${modelId}"]`);
+        const quotaEl = document.getElementById(`quota-${modelId === 'gemini-flash-latest' ? 'flash' : 'pro'}`);
+        const tooltipEl = document.getElementById(`tooltip-${modelId === 'gemini-flash-latest' ? 'flash' : 'pro'}`);
+        
+        if (quotaEl) quotaEl.textContent = `${remaining}/${limit}`;
+        
+        if (remaining === 0) {
+            optionEl.disabled = true;
+            // Calculate time until earliest request expires
+            const oldestRequest = usageHistory[modelId][0] || now;
+            const msUntilRecovery = 60000 - (now - oldestRequest);
+            const secUntilRecovery = Math.ceil(Math.max(0, msUntilRecovery) / 1000);
+            
+            tooltipEl.textContent = `${secUntilRecovery}초 후 회복`;
+            tooltipEl.classList.remove('hidden');
+            
+            // Auto switch model if active is disabled
+            if (selectedModel === modelId) {
+                for (const fallbackModel in MODELS) {
+                    if (fallbackModel !== modelId && usageHistory[fallbackModel].length < MODELS[fallbackModel].limit) {
+                        selectedModel = fallbackModel;
+                        currentModelName.textContent = MODELS[fallbackModel].name;
+                        modelOptions.forEach(opt => {
+                            opt.classList.remove('active');
+                            if (opt.dataset.model === fallbackModel) opt.classList.add('active');
+                        });
+                        break;
+                    }
+                }
+            }
+        } else {
+            optionEl.disabled = false;
+            tooltipEl.classList.add('hidden');
+        }
+    }
+    
+    if (hasChanges) {
+        localStorage.setItem('geminiUsageHistory', JSON.stringify(usageHistory));
+    }
+}
+
+function recordUsage(modelId) {
+    usageHistory[modelId].push(Date.now());
+    localStorage.setItem('geminiUsageHistory', JSON.stringify(usageHistory));
+    updateQuotas();
+}
+
+// Check quotas every second
+setInterval(updateQuotas, 1000);
+updateQuotas();
+
+// Toggle Dropdown
+modelSelectBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    modelDropdown.classList.toggle('hidden');
+    modelSelector.classList.toggle('open');
+});
+
+// Close when clicking outside
+document.addEventListener('click', (e) => {
+    if (!modelSelector.contains(e.target)) {
+        modelDropdown.classList.add('hidden');
+        modelSelector.classList.remove('open');
+    }
+});
+
+// Select Model
+modelOptions.forEach(option => {
+    option.addEventListener('click', () => {
+        if (option.disabled) return;
+        const modelId = option.dataset.model;
+        selectedModel = modelId;
+        currentModelName.textContent = MODELS[modelId].name;
+        
+        // Update active class
+        modelOptions.forEach(opt => opt.classList.remove('active'));
+        option.classList.add('active');
+        
+        // Close dropdown
+        modelDropdown.classList.add('hidden');
+        modelSelector.classList.remove('open');
+    });
+});
 
 // Native file input change
 fileInput.addEventListener('change', (e) => {
@@ -525,7 +646,7 @@ async function callGeminiAPI(prompt) {
             payloadParts.push({ text: prompt });
         }
 
-        const requestBody = {
+        const payload = {
             systemInstruction: {
                 parts: [{ 
                     text: "당신은 구글 제미나이(Gemini) 기반의 친절하고 똑똑한 AI 어시스턴트입니다. 파일(PDF, 이미지)이 첨부되면 내용을 꼼꼼히 분석하여 답변하세요. \n\n[중요: 이미지 생성 요청 처리 규칙]\n만약 사용자가 이미지를 그려달라고 하거나 생성해달라고 요청하는 경우, 당신은 무료 이미지 생성 API를 통해 이미지를 그려주어야 합니다. 답변에 다음과 같은 마크다운 형식의 이미지 링크를 반드시 포함하세요: \n\n`![이미지 설명](https://image.pollinations.ai/prompt/영어로_번역된_상세_프롬프트)`\n\n- '영어로_번역된_상세_프롬프트' 부분은 사용자의 요청을 바탕으로 고품질 이미지를 만들기 위한 상세한 영문 설명(URL 인코딩 불필요, 띄어쓰기는 그대로)으로 작성하세요.\n- 예시: `![귀여운 우주 비행사 고양이](https://image.pollinations.ai/prompt/A cute fluffy cat wearing an astronaut suit, floating in space, highly detailed, 4k, digital art)`" 
@@ -541,18 +662,34 @@ async function callGeminiAPI(prompt) {
             }
         };
 
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`, {
+        // Optional safety: locally prevent sending if we know quota is exhausted
+        if (usageHistory[selectedModel].length >= MODELS[selectedModel].limit) {
+            throw new Error(`${MODELS[selectedModel].name} 모델의 사용 한도를 초과했습니다. 잠시 후 다시 시도해주세요.`);
+        }
+
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify(requestBody)
+            body: JSON.stringify(payload)
         });
 
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error?.message || 'API 요청 실패');
+        if (response.status === 429) {
+            // Force exhaust local quota immediately to trigger cooldown
+            const now = Date.now();
+            usageHistory[selectedModel] = Array(MODELS[selectedModel].limit).fill(now);
+            localStorage.setItem('geminiUsageHistory', JSON.stringify(usageHistory));
+            updateQuotas();
+            throw new Error(`API 서버 요청 한도(429)를 초과했습니다. ${MODELS[selectedModel].name} 모델이 60초간 비활성화됩니다.`);
         }
+
+        if (!response.ok) {
+            throw new Error(`API 오류: ${response.status} ${response.statusText}`);
+        }
+        
+        // Record successful usage
+        recordUsage(selectedModel);
 
         const data = await response.json();
         const aiText = data.candidates[0].content.parts[0].text;

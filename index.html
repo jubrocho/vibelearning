@@ -117,6 +117,37 @@
                         rows="1"
                         aria-label="채팅 입력"
                     ></textarea>
+                    
+                    <!-- Custom Model Selector -->
+                    <div id="modelSelector" class="model-selector">
+                        <button type="button" id="modelSelectBtn" class="model-select-btn" aria-label="AI 모델 선택">
+                            <span id="currentModelName">Gemini Flash</span>
+                            <i data-lucide="chevron-up"></i>
+                        </button>
+                        <div id="modelDropdown" class="model-dropdown hidden">
+                            <button type="button" class="model-option active" data-model="gemini-flash-latest">
+                                <div class="model-info">
+                                    <span class="model-title">Gemini Flash</span>
+                                    <span class="model-desc">빠르고 가벼운 모델</span>
+                                </div>
+                                <div class="model-status">
+                                    <span class="quota-text" id="quota-flash">15/15</span>
+                                </div>
+                                <div class="cooldown-tooltip hidden" id="tooltip-flash">60초 후 회복</div>
+                            </button>
+                            <button type="button" class="model-option" data-model="gemini-1.5-pro-latest">
+                                <div class="model-info">
+                                    <span class="model-title">Gemini Pro</span>
+                                    <span class="model-desc">고성능 추론 모델</span>
+                                </div>
+                                <div class="model-status">
+                                    <span class="quota-text" id="quota-pro">2/2</span>
+                                </div>
+                                <div class="cooldown-tooltip hidden" id="tooltip-pro">60초 후 회복</div>
+                            </button>
+                        </div>
+                    </div>
+
                     <button type="submit" id="sendBtn" class="send-btn" aria-label="전송" disabled>
                         <i data-lucide="send"></i>
                     </button>
